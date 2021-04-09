@@ -97,4 +97,4 @@ ax = polar_plot(tree, ax=ax, arc=350, start=0, depth_offset=.1,
 fig.savefig("./test.png")
 ```
 
-![Example image]("https://github.com/jsgounot/PhyloCircular/blob/main/test.png")
+![Example image]("https://raw.githubusercontent.com/jsgounot/PhyloCircular/main/test.png")
