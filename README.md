@@ -24,7 +24,7 @@ def polar_plot(tree, ax=None, arc=350, start=0, depth_offset=.1,
 
 ### Example
 
-```
+```python3
 from matplotlib.pyplot import figure
 from matplotlib.patches import Circle
 
@@ -97,4 +97,4 @@ ax = polar_plot(tree, ax=ax, arc=350, start=0, depth_offset=.1,
 fig.savefig("./test.png")
 ```
 
-![test_img]("https://github.com/jsgounot/PhyloCircular/blob/master/test.png")
+![test_img]("https://github.com/jsgounot/PhyloCircular/blob/main/test.png")
