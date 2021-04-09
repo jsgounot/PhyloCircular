@@ -1,6 +1,6 @@
 # PhyloCircular
 
-An attempt to produce circular phylogenetic tree with matplotlib. Based on the [biopython]("https://biopython.org/") Phylo [library](https://biopython.org/wiki/Phylo). 
+An attempt to produce circular phylogenetic tree with matplotlib. Based on the [biopython](https://biopython.org) [Phylo](https://biopython.org/wiki/Phylo) library and matplotlib. 
 
 ### Usage
 
