@@ -2,7 +2,7 @@
 
 An attempt to produce circular phylogenetic tree with matplotlib. Based on the [biopython]("https://biopython.org/") Phylo [library](https://biopython.org/wiki/Phylo). 
 
-![Example image]("https://github.com/jsgounot/PhyloCircular/blob/main/test.png")
+![Example image](https://github.com/jsgounot/PhyloCircular/blob/main/test.png)
 
 ### Usage
 
