@@ -1,8 +1,10 @@
+from collections import defaultdict
+
 import math
 import numpy as np
 from scipy.interpolate import interp1d
 
-from matplotlib.patches import Wedge, Arc
+from matplotlib.patches import Wedge
 from matplotlib.artist import Artist
 from matplotlib.collections import LineCollection
 
@@ -37,69 +39,44 @@ def clade_depth(tree) :
         
     return depths 
 
-def draw_label(angle, depth, clade, ax, pad, label_offset=.05) :       
-    
+def draw_label(angle, depth, label, ax) :          
     rotation = angle + 180 if 270 > angle > 90 else angle
     ha = "right" if 270 > angle > 90 else "left"
-        
-    label = clade.name
-
-    label_offset = ax.get_ylim()[1] * label_offset
-    depth = depth + label_offset + pad
      
     rad = np.deg2rad(angle)    
     ax.text(rad, depth, label, rotation=rotation, ha=ha, va="center", rotation_mode='anchor')
 
 
-def draw_clade_wedge(clade, angles, depths, ax, mdepth, lratio, pad) :
-    nnodes = len(clade.get_terminals())
-
-    mdepth = mdepth + pad
-       
+def draw_internal_wedge(clade, angles, ax, depth) :
+      
     min_angle = min(angles[child]
             for child in clade.get_terminals())
         
     max_angle = max(angles[child]
         for child in clade.get_terminals())
 
+    nnodes = len(clade.get_terminals())
     angles_diff = ((max_angle - min_angle) / (nnodes + 2)) / 2
     
     min_angle = min_angle - angles_diff
     max_angle = max_angle + angles_diff 
 
-    kwargs = clade.wedge.copy()
-
-    lsize = kwargs.pop("size", lratio)
-    external = kwargs.pop("external", False)
-
-
-    if external :
-        wedge = Wedge((0, 0), mdepth + lsize, min_angle, max_angle, width=lsize,
-            transform=ax.transData._b, ** kwargs)
-
-    else :
-        wedge = Wedge((0, 0), mdepth, min_angle, max_angle, transform=ax.transData._b,
-            ** kwargs)
+    wedge = Wedge((0, 0), depth, min_angle, max_angle, transform=ax.transData._b,
+       ** clade.wedge)
 
     ax.add_patch(wedge)   
     
     # Until a better solution is found
 
     rotation = min_angle + 180 if 270 > min_angle > 90 else min_angle
-    
-    if external :
-        ha = "right" if 270 > min_angle > 90 else "left"
-    else :
-        ha = "left" if 270 > min_angle > 90 else "right"
-    
+    ha = "left" if 270 > min_angle > 90 else "right"
     va = "top" if 270 > min_angle > 90 else "bottom"
-
+   
     rad = np.deg2rad(min_angle)
-    ax.text(rad, mdepth, clade.name, rotation=rotation, ha=ha, va=va, rotation_mode='anchor')
-    
-def draw_patch(angle, depth, ax, patch, pad) :
+    ax.text(rad, depth, clade.name, rotation=rotation, ha=ha, va=va, rotation_mode='anchor')
+
+def draw_patch(angle, depth, ax, patch) :
     rad = np.deg2rad(angle)
-    depth = depth + pad
     x_coor = depth * np.cos(rad)
     y_coor = (depth * np.sin(rad))
     
@@ -140,84 +117,100 @@ def draw_depthline(angle, depth, cdepth, ax, lc) :
     #ax.plot([rad,rad], [depth, cdepth], color="black")
 
 
-def draw_clade(clade, ax, angles, depths, lc, mdepth, 
-    depth_offset, label_external, patch_external, lratio,
-    pad_label, pad_patch, pad_wedge) :
+def draw_clade(clade, ax, angles, depths, lc, root_distance,  
+        mdepth, label_leaf, patch_leaf, wedge, pad_label, 
+        pad_patch, pad_wedge) :
     
     # Recursively draw a tree, down from the given clade   
     angle = angles[clade]
-    depth = depths[clade] + depth_offset
-    
+    depth = depths[clade] + root_distance
     
     try :
         patch = clade.patch
-        ldepth = depth if not patch_external else mdepth
-        draw_patch(angle, ldepth, ax, patch, pad_patch)
     except AttributeError:
-        pass
+        patch = None
+
+    if patch and patch_leaf : 
+        pdepth = depth + pad_patch
+        draw_patch(angle, pdepth, ax, patch)
         
-    # draw label
-    if clade.name and not clade.clades :
-        ldepth = depth if not label_external else mdepth
-        draw_label(angle, ldepth, clade, ax, pad_label)
+    if clade.name and label_leaf and not clade.clades :
+        ldepth = depth + pad_label
+        draw_label(angle, ldepth, clade.name, ax)
 
     try :
-        if clade.wedge :
-            draw_clade_wedge(clade, angles, depths, ax, mdepth, lratio, pad_wedge)
+        cwedge = clade.wedge            
     except AttributeError as e :
-        pass
-    
+        cwedge = None
+
+    if wedge and cwedge :
+        wdepth = mdepth + pad_wedge
+        draw_internal_wedge(clade, angles, ax, wdepth)
+
     for child in clade.clades :      
-        # children
-        
         cangle = angles[child]
-        cdepth = depths[child] + depth_offset
+        cdepth = depths[child] + root_distance
         
         # draw lines
         draw_baseline((angle, depth), (cangle, depth), ax, lc)
         draw_depthline(cangle, depth, cdepth, ax, lc)
         
-        draw_clade(child, ax, angles, depths, lc, mdepth,
-            depth_offset, label_external, patch_external, lratio,
-            pad_label, pad_patch, pad_wedge)
+        draw_clade(child, ax, angles, depths, lc, root_distance,  
+            mdepth, label_leaf, patch_leaf, wedge, pad_label, 
+            pad_patch, pad_wedge)
         
     # ax.get_figure().canvas.draw()
 
-def polar_plot(tree, ax=None, arc=350, start=0, depth_offset=.1,
-        label_external=False, patch_external=False, lratio=None,
-        pad_label=0, pad_patch=0, pad_wedge=0) :
+def polar_plot(tree, ax=None, arc=350, start=0, root_distance=.1,
+        label_leaf=True, patch_leaf=True, wedge=True, pad_label=0, 
+        pad_patch=0, pad_wedge=0, externals=[]) :
 
     if ax is None :
         fig = figure(figsize=(50, 50), dpi=80)
         ax = fig.add_subplot(polar=True)    
 
-    lc = []
-        
+    # angles and depths
     angles = clade_angles(tree, arc, start)
-    depths = clade_depth(tree)
-    
-    mdepth = max(depths.values()) + depth_offset
-    
-    if label_external or patch_external :
-        lratio = lratio or mdepth / 2
-        ax.set_ylim(0, mdepth + mdepth * .1 + lratio)
+    depths = clade_depth(tree)  
+    mdepth = max(depths.values()) + root_distance
+
+    # setup externals if any
+    cdepth = mdepth + mdepth * .1
+
+    for external in externals :
+        external.set_initial_depth(cdepth)
+        external.set_size(mdepth)
+        cdepth += external.fsize()
+
+    if not externals :
+        usual = mdepth + mdepth * .1 
+        total_size = max(usual, mdepth + pad_wedge)
+
     else :
-        ax.set_ylim(0, mdepth + mdepth * .1)
-    
+        total_size = cdepth
+
+    ax.set_ylim(0, total_size)
+    ax.axis("off")
+
+    # initialize some variables
+    pad_label = pad_label or total_size * .05
+
+    # lines collection for faster plotting
+    lc = []
+
     # root depthline
     angle = angles[tree.root]
-    draw_depthline(angle, 0, depth_offset, ax, lc)    
+    draw_depthline(angle, 0, root_distance, ax, lc)    
 
     # draw clades
-    draw_clade(tree.root, ax, angles, depths, lc, mdepth, depth_offset, 
-        label_external, patch_external, lratio, pad_label, pad_patch, pad_wedge)
-    
-    print ("done 1")
-    
+    draw_clade(tree.root, ax, angles, depths, lc, root_distance,  
+        mdepth, label_leaf, patch_leaf, wedge, pad_label, 
+        pad_patch, pad_wedge)
+       
     for element in lc :
         ax.add_collection(element)
-    
-    print ("done 2")
-    
-    ax.axis("off")
+        
+    for external in externals :
+        external.draw(ax, angles, tree, arc, start)
+
     return ax
